@@ -21,6 +21,7 @@ In doing so, you will learn about:
 # Custom GPU kernels for elementwise additions are educationally valuable but won't get you very far in practice.
 # Let us consider instead the case of a simple (numerically stabilized) softmax operation:
 
+import triton_utils
 import torch
 
 import triton
@@ -155,46 +156,46 @@ assert torch.allclose(y_triton, y_torch), (y_triton, y_torch)
 # We will then compare its performance against (1) :code:`torch.softmax` and (2) the :code:`naive_softmax` defined above.
 
 
-@triton.testing.perf_report(
-    triton.testing.Benchmark(
-        x_names=['N'],  # argument names to use as an x-axis for the plot
-        x_vals=[
-            128 * i for i in range(2, 100)
-        ],  # different possible values for `x_name`
-        line_arg='provider',  # argument name whose value corresponds to a different line in the plot
-        line_vals=[
-            'triton',
-            'torch-native',
-            'torch-jit',
-        ],  # possible values for `line_arg``
-        line_names=[
-            "Triton",
-            "Torch (native)",
-            "Torch (jit)",
-        ],  # label name for the lines
-        styles=[('blue', '-'), ('green', '-'), ('green', '--')],  # line styles
-        ylabel="GB/s",  # label name for the y-axis
-        plot_name="softmax-performance",  # name for the plot. Used also as a file name for saving the plot.
-        args={'M': 4096},  # values for function arguments not in `x_names` and `y_name`
-    )
-)
-def benchmark(M, N, provider):
-    x = torch.randn(M, N, device='cuda', dtype=torch.float32)
-    quantiles = [0.5, 0.2, 0.8]
-    if provider == 'torch-native':
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: torch.softmax(x, axis=-1), quantiles=quantiles)
-    if provider == 'triton':
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: softmax(x), quantiles=quantiles)
-    if provider == 'torch-jit':
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: naive_softmax(x), quantiles=quantiles)
-    gbps = lambda ms: 2 * x.nelement() * x.element_size() * 1e-9 / (ms * 1e-3)
-    return gbps(ms), gbps(max_ms), gbps(min_ms)
-
-
-benchmark.run(show_plots=True, print_data=True)
-
-# %%
-# In the above plot, we can see that:
-#  - Triton is 4x faster than the Torch JIT. This confirms our suspicions that the Torch JIT does not do any fusion here.
-#  - Triton is noticeably faster than :code:`torch.softmax` -- in addition to being **easier to read, understand and maintain**.
-#    Note however that the PyTorch `softmax` operation is more general and will work on tensors of any shape.
+# @triton.testing.perf_report(
+#     triton.testing.Benchmark(
+#         x_names=['N'],  # argument names to use as an x-axis for the plot
+#         x_vals=[
+#             128 * i for i in range(2, 100)
+#         ],  # different possible values for `x_name`
+#         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
+#         line_vals=[
+#             'triton',
+#             'torch-native',
+#             'torch-jit',
+#         ],  # possible values for `line_arg``
+#         line_names=[
+#             "Triton",
+#             "Torch (native)",
+#             "Torch (jit)",
+#         ],  # label name for the lines
+#         styles=[('blue', '-'), ('green', '-'), ('green', '--')],  # line styles
+#         ylabel="GB/s",  # label name for the y-axis
+#         plot_name="softmax-performance",  # name for the plot. Used also as a file name for saving the plot.
+#         args={'M': 4096},  # values for function arguments not in `x_names` and `y_name`
+#     )
+# )
+# def benchmark(M, N, provider):
+#     x = torch.randn(M, N, device='cuda', dtype=torch.float32)
+#     quantiles = [0.5, 0.2, 0.8]
+#     if provider == 'torch-native':
+#         ms, min_ms, max_ms = triton.testing.do_bench(lambda: torch.softmax(x, axis=-1), quantiles=quantiles)
+#     if provider == 'triton':
+#         ms, min_ms, max_ms = triton.testing.do_bench(lambda: softmax(x), quantiles=quantiles)
+#     if provider == 'torch-jit':
+#         ms, min_ms, max_ms = triton.testing.do_bench(lambda: naive_softmax(x), quantiles=quantiles)
+#     gbps = lambda ms: 2 * x.nelement() * x.element_size() * 1e-9 / (ms * 1e-3)
+#     return gbps(ms), gbps(max_ms), gbps(min_ms)
+#
+#
+# benchmark.run(show_plots=True, print_data=True)
+#
+# # %%
+# # In the above plot, we can see that:
+# #  - Triton is 4x faster than the Torch JIT. This confirms our suspicions that the Torch JIT does not do any fusion here.
+# #  - Triton is noticeably faster than :code:`torch.softmax` -- in addition to being **easier to read, understand and maintain**.
+# #    Note however that the PyTorch `softmax` operation is more general and will work on tensors of any shape.
