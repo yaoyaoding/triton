@@ -38,7 +38,7 @@ def run_at_exit():
         else:
             if len(current_lines) > 0:
                 current_content = '\n'.join(current_lines[1:])
-                with open(f'ir/{idx}{"*" if previous_content != current_content else ""}.txt', 'w') as f:
+                with open(f'ir/{idx}{"*" if previous_content != current_content else ""}.mlir', 'w') as f:
                     f.writelines(current_lines)
                 previous_content = current_content
                 idx += 1
