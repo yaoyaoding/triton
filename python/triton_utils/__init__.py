@@ -15,9 +15,11 @@ os.environ['MLIR_ENABLE_DUMP'] = '1'
 
 # redict stderr to a file
 import sys
+
 fname = 'triton_stderr.log'
 new_stderr = open(fname, 'w')
 os.dup2(new_stderr.fileno(), sys.stderr.fileno())
+
 
 def process_content(content):
     import re
@@ -34,6 +36,18 @@ def process_content(content):
     content = '\n'.join([line for line in content.split('\n') if len(line.strip()) > 0])
 
     return content
+
+
+def extract_file_name(head_line):
+    import re
+    print(head_line)
+    a, b = re.search(
+        # r'IR Dump (Before|After) \w+ \((\w+)\) \(.* @(\w+)\)',
+        r'IR Dump (Before|After) \w+ \(([\w-]+)\)',
+        head_line
+    ).group(1, 2)
+    print(a, b)
+    return f'{a.lower()}-{b}'
 
 
 def run_at_exit():
@@ -56,9 +70,11 @@ def run_at_exit():
         else:
             if len(current_lines) > 0:
                 head_line = current_lines[0]
+                file_name = extract_file_name(head_line)
+                # file_name = ''
                 current_content = ''.join(current_lines[1:])
                 current_content = process_content(current_content)
-                with open(f'ir/{idx}{"*" if previous_content != current_content else ""}.mlir', 'w') as f:
+                with open(f'ir/{idx}{"*" if previous_content != current_content else ""}-{file_name}.mlir', 'w') as f:
                     f.write(head_line)
                     f.write(current_content)
                 previous_content = current_content
@@ -69,3 +85,5 @@ def run_at_exit():
 
 
 atexit.register(run_at_exit)
+
+# print(extract_file_name("// -----// IR Dump Before Inliner (inline) ('builtin.module' operation) //----- //"))
