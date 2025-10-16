@@ -402,6 +402,9 @@ def _p_matmul_ogs(
         accs = (acc,)
         biases = (bias,)
 
+        if SWAP_XW:
+            acc = acc.T
+
         if SUBTILE_FACTOR >= 2:
             acc0, acc1 = acc.reshape(BLOCK_M, 2, BLOCK_N // 2).permute(0, 2, 1).split()
             accs = (acc0, acc1)
@@ -426,10 +429,6 @@ def _p_matmul_ogs(
         for a_i in tl.static_range(len(accs)):
             acc_tile = accs[a_i]
             acc_tile *= x_scale * w_scale
-
-            if SWAP_XW:
-                acc_tile = acc_tile.T
-
             acc_tile = acc_tile + biases[a_i][None, :] * betas[:, None]
             if out_alpha is not None:
                 acc_tile *= out_alpha
